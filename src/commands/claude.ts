@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import chalk from 'chalk';
 
 const SKILL_CONTENT = `---
-allowed-tools: Bash(dev-session *)
+allowed-tools: Bash(dev-prism *)
 description: Manage isolated development sessions (create, list, start, stop, destroy)
 ---
 
@@ -13,14 +13,14 @@ Manage isolated parallel development sessions using git worktrees and Docker.
 
 ## Parse Intent from: $ARGUMENTS
 
-- "create" / "new" -> dev-session create
-- "list" / "status" -> dev-session list
-- "start <id>" -> dev-session start <id>
-- "stop <id>" -> dev-session stop <id>
-- "destroy <id>" -> dev-session destroy <id>
-- "logs <id>" -> dev-session logs <id>
-- "stop all" -> dev-session stop-all
-- "prune" -> dev-session prune
+- "create" / "new" -> dev-prism create
+- "list" / "status" -> dev-prism list
+- "start <id>" -> dev-prism start <id>
+- "stop <id>" -> dev-prism stop <id>
+- "destroy <id>" -> dev-prism destroy <id>
+- "logs <id>" -> dev-prism logs <id>
+- "stop all" -> dev-prism stop-all
+- "prune" -> dev-prism prune
 
 ## Commands
 
@@ -41,14 +41,14 @@ Isolated parallel development sessions using git worktrees and Docker.
 
 ### Commands
 \`\`\`bash
-dev-session create [id]      # Create session (auto-assigns ID)
-dev-session list             # Show all sessions with status
-dev-session start <id>       # Start stopped session
-dev-session stop <id>        # Stop session (preserves data)
-dev-session stop-all         # Stop all running sessions
-dev-session destroy <id>     # Remove session completely
-dev-session logs <id>        # Stream Docker logs
-dev-session prune            # Remove stopped sessions
+dev-prism create [id]      # Create session (auto-assigns ID)
+dev-prism list             # Show all sessions with status
+dev-prism start <id>       # Start stopped session
+dev-prism stop <id>        # Stop session (preserves data)
+dev-prism stop-all         # Stop all running sessions
+dev-prism destroy <id>     # Remove session completely
+dev-prism logs <id>        # Stream Docker logs
+dev-prism prune            # Remove stopped sessions
 \`\`\`
 
 ### Port Allocation
@@ -62,7 +62,7 @@ Port = 47000 + (sessionId × 100) + offset
 
 ### AI Notes
 - In sessions, use DATABASE_URL from \`.env.session\`
-- Run \`dev-session list\` to discover ports
+- Run \`dev-prism list\` to discover ports
 - Commands run from project root, not session worktrees
 `;
 

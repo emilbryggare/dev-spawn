@@ -1,18 +1,18 @@
 {
-  "name": "dev-session",
-  "version": "0.2.0",
+  "name": "dev-prism",
+  "version": "0.1.0",
   "description": "Minimal CLI for isolated parallel development sessions using git worktrees and Docker Compose",
   "type": "module",
   "license": "MIT",
   "author": "Emil Bryggare",
   "repository": {
     "type": "git",
-    "url": "https://github.com/emilbryggare/dev-session.git"
+    "url": "https://github.com/emilbryggare/dev-prism.git"
   },
   "bugs": {
-    "url": "https://github.com/emilbryggare/dev-session/issues"
+    "url": "https://github.com/emilbryggare/dev-prism/issues"
   },
-  "homepage": "https://github.com/emilbryggare/dev-session#readme",
+  "homepage": "https://github.com/emilbryggare/dev-prism#readme",
   "keywords": [
     "development",
     "sessions",
@@ -26,7 +26,7 @@
     "ai-development"
   ],
   "bin": {
-    "dev-session": "./bin/dev-session.js"
+    "dev-prism": "./bin/dev-prism.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",

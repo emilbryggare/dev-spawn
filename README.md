@@ -1,4 +1,8 @@
-# dev-session
+# dev-prism
+
+<p align="center">
+  <img src="banner.png" alt="dev-prism - One codebase, many parallel sessions" width="600">
+</p>
 
 A minimal CLI tool for managing isolated parallel development sessions. Enables multiple Claude Code (or human developer) sessions to work on the same repo simultaneously with complete isolation.
 
@@ -22,9 +26,9 @@ All Docker configuration lives in `docker-compose.session.yml` in your project -
 ## Installation
 
 ```bash
-npm install -g dev-session
+npm install -g dev-prism
 # or
-pnpm add -D dev-session
+pnpm add -D dev-prism
 ```
 
 ## Usage
@@ -33,46 +37,48 @@ pnpm add -D dev-session
 
 ```bash
 # Docker mode (default) - apps run in containers
-dev-session create 001
+dev-prism create 001
 
 # Native mode - only infrastructure in Docker, apps run via pnpm dev
-dev-session create 001 --mode=native
+dev-prism create 001 --mode=native
 
 # In-place mode - use current directory instead of creating worktree
-dev-session create 001 --in-place
+dev-prism create 001 --in-place
 ```
+
+**Note:** In-place sessions are not shown in `dev-prism list` (which only lists worktree-based sessions). Use `dev-prism info` from within an in-place session directory to see its details.
 
 ### List sessions
 
 ```bash
-dev-session list
+dev-prism list
 ```
 
 ### Session info (for current directory)
 
 ```bash
-dev-session info
+dev-prism info
 ```
 
 ### Start/Stop services
 
 ```bash
-dev-session stop 001   # Stop without destroying
-dev-session start 001  # Start again
-dev-session stop-all   # Stop all sessions
+dev-prism stop 001   # Stop without destroying
+dev-prism start 001  # Start again
+dev-prism stop-all   # Stop all sessions
 ```
 
 ### View logs
 
 ```bash
-dev-session logs 001
+dev-prism logs 001
 ```
 
 ### Destroy a session
 
 ```bash
-dev-session destroy 001     # Destroy specific session
-dev-session destroy --all   # Destroy all sessions
+dev-prism destroy 001     # Destroy specific session
+dev-prism destroy --all   # Destroy all sessions
 ```
 
 ## Port Allocation
@@ -151,7 +157,7 @@ services:
 
 ## How It Works
 
-1. **Create session**: `dev-session create 001`
+1. **Create session**: `dev-prism create 001`
    - Creates git worktree at `../project-sessions/session-001`
    - Generates `.env.session` with calculated ports
    - Runs `docker compose --env-file .env.session up -d`
@@ -184,7 +190,7 @@ CONVAS_APP_PORT=47100
 
 To use in another project:
 
-1. Install: `pnpm add -D dev-session`
+1. Install: `pnpm add -D dev-prism`
 2. Create `session.config.mjs` with port offsets
 3. Create `docker-compose.session.yml` with `${VAR}` placeholders
-4. Run `dev-session create 001`
+4. Run `dev-prism create 001`

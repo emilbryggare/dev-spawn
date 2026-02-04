@@ -21,7 +21,7 @@ export async function listSessions(projectRoot: string): Promise<void> {
   if (sessions.length === 0) {
     console.log(chalk.gray('No active sessions found.'));
     console.log(chalk.gray('\nTo create a session:'));
-    console.log(chalk.cyan('  dev-session create'));
+    console.log(chalk.cyan('  dev-prism create'));
     return;
   }
 
