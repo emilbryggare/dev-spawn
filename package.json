@@ -1,8 +1,30 @@
 {
   "name": "dev-session",
   "version": "0.2.0",
-  "description": "Minimal CLI for isolated parallel development sessions",
+  "description": "Minimal CLI for isolated parallel development sessions using git worktrees and Docker Compose",
   "type": "module",
+  "license": "MIT",
+  "author": "Emil Bryggare",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/emilbryggare/dev-session.git"
+  },
+  "bugs": {
+    "url": "https://github.com/emilbryggare/dev-session/issues"
+  },
+  "homepage": "https://github.com/emilbryggare/dev-session#readme",
+  "keywords": [
+    "development",
+    "sessions",
+    "git-worktree",
+    "docker",
+    "docker-compose",
+    "isolation",
+    "parallel",
+    "cli",
+    "claude-code",
+    "ai-development"
+  ],
   "bin": {
     "dev-session": "./bin/dev-session.js"
   },
@@ -11,9 +33,7 @@
   "scripts": {
     "build": "tsup src/index.ts src/commands/create.ts src/commands/destroy.ts src/commands/list.ts src/commands/claude.ts src/lib/config.ts src/lib/docker.ts src/lib/env.ts src/lib/ports.ts src/lib/worktree.ts --format esm --dts",
     "dev": "tsup src/index.ts --format esm --dts --watch",
-    "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "test:watch": "vitest"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "chalk": "^5.3.0",
@@ -23,8 +43,7 @@
   "devDependencies": {
     "@types/node": "^20.10.0",
     "tsup": "^8.0.1",
-    "typescript": "^5.3.2",
-    "vitest": "^4.0.18"
+    "typescript": "^5.3.2"
   },
   "engines": {
     "node": ">=18"
