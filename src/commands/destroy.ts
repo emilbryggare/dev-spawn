@@ -1,9 +1,10 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import chalk from 'chalk';
-import { loadConfig, getSessionDir } from '../lib/config.js';
-import { removeWorktree, getSessionWorktrees } from '../lib/worktree.js';
+import { loadConfig } from '../lib/config.js';
+import { removeWorktree } from '../lib/worktree.js';
 import * as docker from '../lib/docker.js';
+import { SessionStore } from '../lib/store.js';
 
 export interface DestroyOptions {
   all?: boolean;
@@ -15,18 +16,22 @@ export async function destroySession(
   options: DestroyOptions
 ): Promise<void> {
   const config = await loadConfig(projectRoot);
-  const sessions = await getSessionWorktrees(projectRoot);
+
+  const store = new SessionStore();
+  try {
 
   if (options.all) {
     console.log(chalk.blue('Destroying all sessions...'));
 
+    const sessions = store.listByProject(projectRoot);
     if (sessions.length === 0) {
       console.log(chalk.gray('No sessions found.'));
       return;
     }
 
     for (const session of sessions) {
-      await destroySingleSession(projectRoot, session.sessionId, session.path, session.branch);
+      await destroySingleSession(projectRoot, session.session_id, session.session_dir, session.branch, session.in_place === 1);
+      store.markDestroyed(projectRoot, session.session_id);
     }
 
     console.log(chalk.green(`\nDestroyed ${sessions.length} session(s).`));
@@ -44,23 +49,29 @@ export async function destroySession(
     process.exit(1);
   }
 
-  // Find session to get the actual branch name
-  const session = sessions.find((s) => s.sessionId === sessionId);
+  // Find session in DB
+  const session = store.findSession(projectRoot, sessionId);
   if (!session) {
     console.error(chalk.red(`Error: Session ${sessionId} not found.`));
     process.exit(1);
   }
 
-  await destroySingleSession(projectRoot, sessionId, session.path, session.branch);
+  await destroySingleSession(projectRoot, sessionId, session.session_dir, session.branch, session.in_place === 1);
+  store.markDestroyed(projectRoot, sessionId);
 
   console.log(chalk.green(`\nSession ${sessionId} destroyed.`));
+
+  } finally {
+    store.close();
+  }
 }
 
 async function destroySingleSession(
   projectRoot: string,
   sessionId: string,
   sessionDir: string,
-  branchName: string
+  branchName: string,
+  inPlace: boolean
 ): Promise<void> {
   console.log(chalk.blue(`\nDestroying session ${sessionId}...`));
 
@@ -75,9 +86,11 @@ async function destroySingleSession(
     }
   }
 
-  // Remove worktree and branch
-  console.log(chalk.gray('  Removing git worktree...'));
-  await removeWorktree(projectRoot, sessionDir, branchName);
+  // Remove worktree and branch (skip for in-place sessions)
+  if (!inPlace) {
+    console.log(chalk.gray('  Removing git worktree...'));
+    await removeWorktree(projectRoot, sessionDir, branchName);
+  }
 
   console.log(chalk.green(`  Session ${sessionId} destroyed.`));
 }

@@ -1,0 +1,8 @@
+services:
+  app:
+    build: .
+    ports:
+      - "${APP_PORT}:${APP_PORT}"
+    environment:
+      - APP_PORT=${APP_PORT}
+      - SESSION_ID=${SESSION_ID}

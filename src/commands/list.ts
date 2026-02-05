@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import chalk from 'chalk';
 import { loadConfig } from '../lib/config.js';
 import { calculatePorts } from '../lib/ports.js';
-import { getSessionWorktrees } from '../lib/worktree.js';
+import { SessionStore } from '../lib/store.js';
 import * as docker from '../lib/docker.js';
 
 interface SessionStatus {
@@ -16,7 +16,14 @@ interface SessionStatus {
 
 export async function listSessions(projectRoot: string): Promise<void> {
   const config = await loadConfig(projectRoot);
-  const sessions = await getSessionWorktrees(projectRoot);
+
+  const store = new SessionStore();
+  let sessions;
+  try {
+    sessions = store.listByProject(projectRoot);
+  } finally {
+    store.close();
+  }
 
   if (sessions.length === 0) {
     console.log(chalk.gray('No active sessions found.'));
@@ -29,7 +36,7 @@ export async function listSessions(projectRoot: string): Promise<void> {
   console.log(chalk.gray('================\n'));
 
   for (const session of sessions) {
-    const status = await getSessionStatus(session.sessionId, session.path, session.branch, config);
+    const status = await getSessionStatus(session.session_id, session.session_dir, session.branch, config);
     printSessionStatus(status);
   }
 }

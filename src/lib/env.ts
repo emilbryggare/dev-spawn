@@ -37,7 +37,7 @@ export function writeEnvFile(
 }
 
 // Render app-specific env template by substituting port variables
-function renderAppEnv(
+export function renderAppEnv(
   template: Record<string, string>,
   ports: Record<string, number>
 ): Record<string, string> {

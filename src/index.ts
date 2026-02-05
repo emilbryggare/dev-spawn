@@ -1,6 +1,16 @@
 export { createSession } from './commands/create.js';
 export { destroySession } from './commands/destroy.js';
 export { listSessions } from './commands/list.js';
+export { showInfo } from './commands/info.js';
+export { startSession } from './commands/start.js';
+export { stopSession } from './commands/stop.js';
+export { stopAllSessions } from './commands/stop-all.js';
+export { pruneSessions } from './commands/prune.js';
+export { streamLogs } from './commands/logs.js';
+export { installClaude, type ClaudeOptions } from './commands/claude.js';
 export { loadConfig, type SessionConfig } from './lib/config.js';
 export { calculatePorts } from './lib/ports.js';
-export { findNextSessionId, generateDefaultBranchName } from './lib/worktree.js';
+export { generateDefaultBranchName } from './lib/worktree.js';
+export { SessionStore, type SessionRow } from './lib/store.js';
+export { generateEnvContent, writeEnvFile, renderAppEnv, writeAppEnvFiles } from './lib/env.js';
+export { up, down, ps, logs as dockerLogs, isRunning, type DockerComposeOptions } from './lib/docker.js';

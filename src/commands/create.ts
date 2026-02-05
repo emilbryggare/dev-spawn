@@ -5,8 +5,9 @@ import { execa } from 'execa';
 import { loadConfig, getSessionDir, getSessionsDir } from '../lib/config.js';
 import { calculatePorts, formatPortsTable } from '../lib/ports.js';
 import { writeEnvFile, writeAppEnvFiles } from '../lib/env.js';
-import { createWorktree, findNextSessionId, generateDefaultBranchName } from '../lib/worktree.js';
+import { createWorktree, findNextSessionId, generateDefaultBranchName, removeWorktree } from '../lib/worktree.js';
 import * as docker from '../lib/docker.js';
+import { SessionStore } from '../lib/store.js';
 
 function updateEnvDatabaseUrl(envPath: string, newDbUrl: string): void {
   if (!existsSync(envPath)) return;
@@ -39,9 +40,12 @@ export async function createSession(
   const config = await loadConfig(projectRoot);
   const sessionsDir = getSessionsDir(config, projectRoot);
 
+  const store = new SessionStore();
+  try {
+
   // Auto-assign session ID if not provided
   if (!sessionId) {
-    sessionId = await findNextSessionId(projectRoot, sessionsDir);
+    sessionId = findNextSessionId(store.getUsedSessionIds(projectRoot));
     console.log(chalk.gray(`Auto-assigned session ID: ${sessionId}`));
   }
 
@@ -166,6 +170,27 @@ export async function createSession(
     }
   }
 
+  // Record session in DB (remove any old destroyed row first for UNIQUE constraint)
+  store.remove(projectRoot, sessionId);
+  try {
+    store.insert({
+      sessionId,
+      projectRoot,
+      sessionDir,
+      branch: inPlace ? '' : branchName,
+      mode,
+      inPlace,
+    });
+  } catch (dbErr) {
+    // DB insert failed — clean up artifacts and abort
+    console.error(chalk.red('Failed to record session in database. Cleaning up...'));
+    try { await docker.down({ cwd: sessionDir }); } catch { /* ignore */ }
+    if (!inPlace) {
+      try { await removeWorktree(projectRoot, sessionDir, branchName); } catch { /* ignore */ }
+    }
+    throw dbErr;
+  }
+
   // Print success message
   console.log(chalk.green(`\nSession ${sessionId} ready!`));
   console.log(chalk.gray(`Directory: ${sessionDir}`));
@@ -202,5 +227,9 @@ export async function createSession(
         throw error;
       }
     }
+  }
+
+  } finally {
+    store.close();
   }
 }
