@@ -71,12 +71,30 @@ export async function createSession(
   console.log(chalk.gray('\nPorts:'));
   console.log(chalk.gray(formatPortsTable(ports)));
 
-  // Determine session directory
-  let sessionDir: string;
+  // Determine session directory path (computed from sessionId, not yet created on disk)
+  const sessionDir = inPlace ? projectRoot : getSessionDir(config, projectRoot, sessionId);
+
+  // Reserve session in DB early to prevent concurrent creates from claiming the same ID.
+  // The UNIQUE constraint inside the transaction makes this atomic.
+  try {
+    store.reserve({
+      sessionId,
+      projectRoot,
+      sessionDir,
+      branch: inPlace ? '' : branchName,
+      mode,
+      inPlace,
+    });
+  } catch {
+    console.error(chalk.red(`Error: Session ${sessionId} is already being created by another process.`));
+    process.exit(1);
+  }
+
+  let profiles: string[] | undefined;
+
+  try {
 
   if (inPlace) {
-    // Use current directory
-    sessionDir = projectRoot;
     console.log(chalk.blue('\nUsing current directory (in-place mode)...'));
     console.log(chalk.green(`  Directory: ${sessionDir}`));
   } else {
@@ -84,9 +102,6 @@ export async function createSession(
     if (!existsSync(sessionsDir)) {
       mkdirSync(sessionsDir, { recursive: true });
     }
-
-    // Get session directory
-    sessionDir = getSessionDir(config, projectRoot, sessionId);
 
     // Create git worktree
     console.log(chalk.blue('\nCreating git worktree...'));
@@ -124,7 +139,6 @@ export async function createSession(
   // In docker mode: start requested app profiles (default: all)
   // In native mode: only infrastructure runs
   console.log(chalk.blue('\nStarting Docker services...'));
-  let profiles: string[] | undefined;
   if (mode === 'docker') {
     const allApps = config.apps ?? [];
     const excludeApps = options.without ?? [];
@@ -170,25 +184,15 @@ export async function createSession(
     }
   }
 
-  // Record session in DB (remove any old destroyed row first for UNIQUE constraint)
-  store.remove(projectRoot, sessionId);
-  try {
-    store.insert({
-      sessionId,
-      projectRoot,
-      sessionDir,
-      branch: inPlace ? '' : branchName,
-      mode,
-      inPlace,
-    });
-  } catch (dbErr) {
-    // DB insert failed — clean up artifacts and abort
-    console.error(chalk.red('Failed to record session in database. Cleaning up...'));
+  } catch (error) {
+    // Creation failed — remove DB reservation and clean up artifacts
+    console.error(chalk.red('Session creation failed. Cleaning up...'));
+    store.remove(projectRoot, sessionId);
     try { await docker.down({ cwd: sessionDir }); } catch { /* ignore */ }
     if (!inPlace) {
       try { await removeWorktree(projectRoot, sessionDir, branchName); } catch { /* ignore */ }
     }
-    throw dbErr;
+    throw error;
   }
 
   // Print success message

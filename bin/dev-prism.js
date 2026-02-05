@@ -17,7 +17,7 @@ const program = new Command();
 program
   .name('dev-prism')
   .description('CLI tool for managing isolated parallel development sessions')
-  .version('0.3.0');
+  .version('0.4.0');
 
 program
   .command('create [sessionId]')
@@ -50,9 +50,10 @@ program
 program
   .command('list')
   .description('List all active development sessions')
-  .action(async () => {
+  .option('-a, --all', 'Show sessions across all projects')
+  .action(async (options) => {
     const projectRoot = process.cwd();
-    await listSessions(projectRoot);
+    await listSessions(projectRoot, { all: options.all });
   });
 
 program

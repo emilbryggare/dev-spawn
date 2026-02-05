@@ -1,6 +1,6 @@
 {
   "name": "dev-prism",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Minimal CLI for isolated parallel development sessions using git worktrees and Docker Compose",
   "type": "module",
   "license": "MIT",

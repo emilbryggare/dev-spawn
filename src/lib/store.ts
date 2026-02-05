@@ -79,6 +79,25 @@ export class SessionStore {
     return this.db.prepare('SELECT * FROM sessions WHERE id = ?').get(info.lastInsertRowid) as SessionRow;
   }
 
+  /**
+   * Atomically remove any old destroyed row and insert a new one.
+   * Uses a transaction so the UNIQUE constraint prevents concurrent creates
+   * from claiming the same session ID.
+   */
+  reserve(row: {
+    sessionId: string;
+    projectRoot: string;
+    sessionDir: string;
+    branch?: string;
+    mode?: string;
+    inPlace?: boolean;
+  }): SessionRow {
+    return this.db.transaction(() => {
+      this.remove(row.projectRoot, row.sessionId);
+      return this.insert(row);
+    })();
+  }
+
   listByProject(projectRoot: string): SessionRow[] {
     return this.db
       .prepare('SELECT * FROM sessions WHERE project_root = ? AND destroyed_at IS NULL ORDER BY session_id')

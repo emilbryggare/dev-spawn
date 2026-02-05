@@ -14,13 +14,20 @@ interface SessionStatus {
   ports: Record<string, number>;
 }
 
-export async function listSessions(projectRoot: string): Promise<void> {
+export async function listSessions(projectRoot: string, options?: { all?: boolean }): Promise<void> {
+  const showAll = options?.all ?? false;
   const config = await loadConfig(projectRoot);
 
   const store = new SessionStore();
   let sessions;
   try {
-    sessions = store.listByProject(projectRoot);
+    const projectSessions = store.listByProject(projectRoot);
+    // Show all sessions if --all flag is set, or if no sessions found for current project
+    if (showAll || projectSessions.length === 0) {
+      sessions = store.listAll();
+    } else {
+      sessions = projectSessions;
+    }
   } finally {
     store.close();
   }
@@ -36,7 +43,8 @@ export async function listSessions(projectRoot: string): Promise<void> {
   console.log(chalk.gray('================\n'));
 
   for (const session of sessions) {
-    const status = await getSessionStatus(session.session_id, session.session_dir, session.branch, config);
+    const sessionConfig = await loadConfig(session.project_root).catch(() => config);
+    const status = await getSessionStatus(session.session_id, session.session_dir, session.branch, sessionConfig);
     printSessionStatus(status);
   }
 }
