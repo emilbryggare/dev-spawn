@@ -262,6 +262,46 @@ To use in another project:
 
 dev-prism doesn't generate any Docker files — you own your Docker setup entirely.
 
+## FAQ
+
+### How do I use `with-env` with Turborepo / `pnpm dev`?
+
+When running all apps at once (e.g. `turbo dev`), every subprocess inherits the same flat environment. This means two apps can't both use a generic `PORT` variable with different values.
+
+The solution: use **unique variable names** in the global `env` block for the all-apps case, and use the `apps` section for single-app invocation where generic names like `PORT` work fine.
+
+```javascript
+// prism.config.mjs
+export default {
+  ports: ['postgres', 'app', 'api'],
+
+  env: {
+    // Shared — used by docker compose and all apps
+    POSTGRES_PORT: '${postgres}',
+    DATABASE_URL:  'postgresql://localhost:${postgres}/mydb',
+    // App-specific with unique names — used by turbo dev
+    APP_PORT: '${app}',
+    API_PORT: '${api}',
+  },
+
+  apps: {
+    // Convenience for single-app dev — generic names
+    'my-app': { PORT: '${app}' },
+    'my-api': { PORT: '${api}' },
+  },
+};
+```
+
+Then all three workflows work:
+
+```bash
+dev-prism with-env -- docker compose up -d          # global env → POSTGRES_PORT
+dev-prism with-env -- pnpm dev                      # global env → APP_PORT, API_PORT (each app reads its own)
+dev-prism with-env my-app -- pnpm --filter my-app dev  # global + app env → PORT=<app port>
+```
+
+The `apps` section is a convenience for single-app invocation. The global `env` block handles the run-everything-at-once case.
+
 ## Migration from v0.6.x
 
 v0.7.0 is a breaking change that removes Docker orchestration:
