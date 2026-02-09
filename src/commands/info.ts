@@ -1,36 +1,66 @@
 import chalk from 'chalk';
-import { getSession } from '../lib/session.js';
+import { loadConfig } from '../lib/config.js';
+import { buildSessionEnv } from '../lib/env.js';
+import {
+  findProjectRoot,
+  openDatabase,
+  getDbSession,
+  getPortAllocations,
+} from '../lib/db.js';
 
 export async function showInfo(cwd: string): Promise<void> {
-  const session = await getSession(cwd);
-
-  if (!session) {
-    console.log(chalk.yellow('No session running in this directory.'));
-    console.log(chalk.gray('Run `dev-prism create --in-place` to create a session here.'));
+  let projectRoot: string;
+  try {
+    projectRoot = findProjectRoot(cwd);
+  } catch {
+    console.log(chalk.yellow('No session found (no prism.config.mjs in parent directories).'));
     process.exit(1);
   }
 
-  console.log(chalk.blue(`\nSession`));
-  console.log(chalk.gray(`Directory: ${session.workingDir}`));
-  console.log(
-    session.running ? chalk.green('Status: running') : chalk.yellow('Status: stopped')
-  );
+  const db = openDatabase();
 
-  if (session.containers.length > 0) {
-    console.log(chalk.gray(`\nContainers (${session.containers.length}):`));
-    for (const container of session.containers) {
-      const serviceName = container.labels['dev-prism.service'] || container.name;
-      const state = container.state === 'running' ? chalk.green('●') : chalk.gray('○');
-      console.log(`  ${state} ${serviceName}`);
+  try {
+    const session = getDbSession(db, cwd);
+
+    if (!session) {
+      console.log(chalk.yellow('No session found for this directory.'));
+      console.log(
+        chalk.gray('Run `dev-prism create --in-place` to create a session here.')
+      );
+      process.exit(1);
     }
-  }
 
-  if (session.ports.length > 0) {
-    console.log(chalk.gray('\nPorts:'));
-    for (const port of session.ports) {
-      console.log(chalk.cyan(`  ${port.service}: http://localhost:${port.externalPort}`));
+    const ports = getPortAllocations(db, session.id);
+    const config = await loadConfig(projectRoot);
+    const env = buildSessionEnv(config, cwd, ports);
+
+    console.log(chalk.blue('\nSession'));
+    console.log(chalk.gray(`Directory: ${session.id}`));
+    if (session.branch) {
+      console.log(chalk.gray(`Branch: ${session.branch}`));
     }
-  }
+    console.log(chalk.gray(`Created: ${session.created_at}`));
 
-  console.log('');
+    if (ports.length > 0) {
+      console.log(chalk.gray('\nPorts:'));
+      for (const port of ports) {
+        console.log(
+          chalk.cyan(
+            `  ${port.service}: http://localhost:${port.port}`
+          )
+        );
+      }
+    }
+
+    if (Object.keys(env).length > 0) {
+      console.log(chalk.gray('\nEnvironment:'));
+      for (const [key, value] of Object.entries(env)) {
+        console.log(chalk.gray(`  ${key}=${value}`));
+      }
+    }
+
+    console.log('');
+  } finally {
+    db.close();
+  }
 }

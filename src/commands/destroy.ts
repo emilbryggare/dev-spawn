@@ -1,110 +1,110 @@
 import { existsSync } from 'node:fs';
-import { resolve, basename } from 'node:path';
+import { resolve } from 'node:path';
 import chalk from 'chalk';
 import { removeWorktree } from '../lib/worktree.js';
-import * as docker from '../lib/docker.js';
-import { listActiveSessions, getSession } from '../lib/session.js';
 import { loadConfig, getSessionsDir } from '../lib/config.js';
+import {
+  findProjectRoot,
+  openDatabase,
+  getDbSession,
+  listDbSessions,
+  deleteDbSession,
+} from '../lib/db.js';
 
 export interface DestroyOptions {
   all?: boolean;
 }
 
 export async function destroySession(
-  workingDirOrProjectRoot: string | undefined,
+  workingDir: string,
   options: DestroyOptions
 ): Promise<void> {
-  if (options.all) {
-    console.log(chalk.blue('Destroying all sessions...'));
-
-    const sessions = await listActiveSessions();
-    if (sessions.length === 0) {
-      console.log(chalk.gray('No active sessions found.'));
-      return;
-    }
-
-    for (const session of sessions) {
-      await destroySingleSession(session.workingDir);
-    }
-
-    console.log(chalk.green(`\nDestroyed ${sessions.length} session(s).`));
-    return;
-  }
-
-  if (!workingDirOrProjectRoot) {
-    console.error(chalk.red('Error: Working directory required. Use --all to destroy all sessions.'));
+  let projectRoot: string;
+  try {
+    projectRoot = findProjectRoot(workingDir);
+  } catch {
+    console.error(chalk.red('Error: Could not find prism.config.mjs'));
     process.exit(1);
   }
 
-  // Check if session exists
-  const session = await getSession(workingDirOrProjectRoot);
-  if (!session) {
-    console.error(chalk.red(`Error: No session found in ${workingDirOrProjectRoot}`));
-    process.exit(1);
-  }
-
-  await destroySingleSession(workingDirOrProjectRoot);
-
-  console.log(chalk.green(`\nSession destroyed.`));
-}
-
-async function destroySingleSession(workingDir: string): Promise<void> {
-  console.log(chalk.blue(`\nDestroying session in ${workingDir}...`));
-
-  // Stop and remove docker containers
-  const envFile = resolve(workingDir, '.env.session');
-  if (existsSync(envFile)) {
-    console.log(chalk.gray('  Stopping and removing Docker containers...'));
-    try {
-      await docker.down({ cwd: workingDir });
-    } catch {
-      // Containers might already be stopped
-    }
-  }
-
-  // Determine if this is a worktree session by checking if it's in a sessions directory
-  // Load config from parent directory to find sessionsDir
-  const parentDir = resolve(workingDir, '..');
-  let isWorktree = false;
-  let projectRoot = '';
-  let branchName = '';
+  const db = openDatabase();
 
   try {
-    // Try to find the project root by looking for session.config.mjs/js
-    let currentDir = workingDir;
-    for (let i = 0; i < 5; i++) {
-      currentDir = resolve(currentDir, '..');
-      const configPath = resolve(currentDir, 'session.config.mjs');
-      const altConfigPath = resolve(currentDir, 'session.config.js');
-      if (existsSync(configPath) || existsSync(altConfigPath)) {
-        projectRoot = currentDir;
-        break;
-      }
-    }
+    if (options.all) {
+      console.log(chalk.blue('Destroying all sessions...'));
 
-    if (projectRoot) {
+      const sessions = listDbSessions(db);
+      if (sessions.length === 0) {
+        console.log(chalk.gray('No sessions found.'));
+        return;
+      }
+
       const config = await loadConfig(projectRoot);
       const sessionsDir = getSessionsDir(config, projectRoot);
 
-      // Check if workingDir is under sessionsDir
-      if (workingDir.startsWith(sessionsDir)) {
-        isWorktree = true;
-        branchName = basename(workingDir);
+      for (const session of sessions) {
+        await destroySingleSession(
+          db,
+          projectRoot,
+          sessionsDir,
+          session.id,
+          session.branch
+        );
       }
-    }
-  } catch {
-    // Could not determine if worktree, assume not
-  }
 
-  // Remove worktree and branch if this is a worktree session
-  if (isWorktree && projectRoot && branchName) {
+      console.log(chalk.green(`\nDestroyed ${sessions.length} session(s).`));
+      return;
+    }
+
+    const session = getDbSession(db, workingDir);
+    if (!session) {
+      console.error(
+        chalk.red(`Error: No session found for ${workingDir}`)
+      );
+      process.exit(1);
+    }
+
+    const config = await loadConfig(projectRoot);
+    const sessionsDir = getSessionsDir(config, projectRoot);
+
+    await destroySingleSession(
+      db,
+      projectRoot,
+      sessionsDir,
+      session.id,
+      session.branch
+    );
+
+    console.log(chalk.green('\nSession destroyed.'));
+  } finally {
+    db.close();
+  }
+}
+
+async function destroySingleSession(
+  db: ReturnType<typeof openDatabase>,
+  projectRoot: string,
+  sessionsDir: string,
+  sessionId: string,
+  branch: string | null
+): Promise<void> {
+  console.log(chalk.blue(`\nDestroying session in ${sessionId}...`));
+
+  // Delete from database (cascades to port_allocations)
+  deleteDbSession(db, sessionId);
+  console.log(chalk.gray('  Removed from database.'));
+
+  // Remove worktree if it's in the sessions directory
+  if (branch && sessionId.startsWith(sessionsDir) && existsSync(sessionId)) {
     console.log(chalk.gray('  Removing git worktree...'));
     try {
-      await removeWorktree(projectRoot, workingDir, branchName);
+      await removeWorktree(projectRoot, sessionId, branch);
     } catch (error) {
-      console.warn(chalk.yellow(`  Warning: Could not remove worktree: ${error}`));
+      console.warn(
+        chalk.yellow(`  Warning: Could not remove worktree: ${error}`)
+      );
     }
   }
 
-  console.log(chalk.green(`  Session destroyed.`));
+  console.log(chalk.green('  Session destroyed.'));
 }
